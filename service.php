@@ -219,6 +219,17 @@ class Main
         return $query->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    private static function GetAccountType()
+    {
+        Helpers::CheckSession(true);
+
+        $query = Main::$pdo->prepare("SELECT type FROM accounts WHERE email = ?");
+        $query->bindParam('1', $_SESSION['email']);
+
+        $query->execute();
+        return $query->fetch()[0];
+    }
+
     public static function PrintGrades($subject)
     {
         $gradeRows = Main::GetGrades($subject);
@@ -233,6 +244,11 @@ class Main
 
         foreach ($subjectRows as $subjectRow)
                 echo $subjectRow[0] . PHP_EOL;
+    }
+
+    public static function PrintAccountType()
+    {
+        echo Main::GetAccountType();
     }
 }
 
@@ -337,5 +353,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         Main::PrintSubjects();
     else if (isset($_POST['getgrades']))
         Main::PrintGrades($_POST['subject']);
+    else if (isset($_POST['getaccounttype']))
+        Main::PrintAccountType();
 } else echo "Hello!";
 ?>
