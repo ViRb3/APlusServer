@@ -68,8 +68,7 @@ class Main
                             exit();
                         }
                     }
-                    else
-                        $key = $row[0];
+                    else $key = $row[0];
 
                     $cookie = [
                         "email" => $email,
@@ -287,12 +286,12 @@ class Helpers
                 $result = $query->execute();
 
                 if ($result)
-                    foreach ($query->fetchAll() as $resultRow)
-                        foreach ($resultRow as $resultKey)
-                            if ($cookie['key'] == $resultKey)
-                            {
-                                $_SESSION['email'] = $cookie['email'];
-                            }
+                {
+                    $row = $query->fetch();
+
+                    if ($cookie['key'] == $row[0])
+                        $_SESSION['email'] = $cookie['email'];
+                }
             }
         }
         if (isset($_SESSION['email']) && !$loggedIn) {
