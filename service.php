@@ -16,7 +16,9 @@ class Main
     public static function Connect()
     {
         try {
-            Main::$pdo = new PDO("mysql:host=localhost;dbname=" . Main::$db_name, Main::$db_username, Main::$db_password);
+            Main::$pdo = new PDO("mysql:host=localhost;dbname=" . Main::$db_name  . ';charset=UTF8', Main::$db_username,
+                Main::$db_password, array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"));
+
             Main::$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch (PDOException $e) {
             echo "Connect failed: " . $e->getMessage();
@@ -137,35 +139,30 @@ class Main
         echo '<br>';
         echo "Registered subjects:" . '<br>';
 
-        $firstSubject = null;
+        foreach ($subjectRows as $subjectRow)
+            foreach ($subjectRow as $subject) {
+                echo "$subject: ";
+
+                $gradeRows = Main::GetGrades($subject);
+
+                foreach ($gradeRows as $gradeRow)
+                    foreach ($gradeRow as $grade)
+                        echo $grade . ' ';
+
+                echo '<br>';
+            }
 
         if (count($subjectRows) == 0)
             echo "-" . '<br>';
-
-        foreach ($subjectRows as $subjectRow)
-            foreach ($subjectRow as $subject) {
-                if ($firstSubject == null)
-                    $firstSubject = $subject;
-
-                echo $subject . '<br>';
-            }
-
-        echo '<br>';
-        echo "Registered grades for $firstSubject:" . '<br>';
-
-        $gradeRows = Main::GetGrades($firstSubject);
-
-        foreach ($gradeRows as $gradeRow)
-            foreach ($gradeRow as $grade)
-                echo $grade . ' ';
     }
 
-    public static function NewGrade($subject, $grade)
+    public static function NewGrade($subject, $grade, $studentEmail, $code)
     {
         Helpers::CheckSession(true);
+        Main::CheckTeacher(true);
 
-        if ($subject == null || $grade == null) {
-            echo "Invalid subject or grade parameter!";
+        if ($subject == null || $grade == null || $grade == null || $code == null) {
+            echo "Invalid subject, grade, student or code parameter!";
             exit();
         }
 
@@ -174,13 +171,39 @@ class Main
             exit();
         }
 
-        $query = Main::$pdo->prepare("INSERT INTO grades (email, subject, grade, timestamp) VALUES (?, ?, ?, ?)");
-        $query->bindParam('1', $_SESSION['email']);
+        $query = Main::$pdo->prepare("SELECT email FROM accounts WHERE email = ?");
+        $query->bindParam('1', $studentEmail);
+
+        $result = $query->execute();
+
+        if (!$result) {
+            echo "Error reading e-mail!";
+            return;
+        }
+
+        if (!$query->fetch()) {
+            echo "Given e-mail is not registered!";
+            return;
+        }
+
+        $query = Main::$pdo->prepare("SELECT code FROM grades WHERE code = ?");
+        $query->bindParam('1', $code);
+        $query->execute();
+
+        if ($query->fetch()) {
+            echo "Code already used!";
+            exit();
+        }
+
+        $query = Main::$pdo->prepare("INSERT INTO grades (email, subject, grade, timestamp, code) VALUES (?, ?, ?, ?, ?)");
+        $query->bindParam('1', $studentEmail);
         $query->bindParam('2', $subject);
         $query->bindParam('3', $grade);
 
         $timestamp = date("Y-m-d H:i:s");
         $query->bindParam('4', $timestamp);
+
+        $query->bindParam('5', $code);
 
         $result = $query->execute();
 
@@ -205,7 +228,7 @@ class Main
     {
         Helpers::CheckSession(true);
 
-        if (!isset($_POST['subject'])) {
+        if (empty($subject)) {
             echo "Subject is invalid!";
             exit();
         }
@@ -229,6 +252,67 @@ class Main
         return $query->fetch()[0];
     }
 
+    private static function GetStudents()
+    {
+        Helpers::CheckSession(true);
+        Main::CheckTeacher(true);
+
+        $query = Main::$pdo->prepare("SELECT email FROM accounts");
+
+        if (!$query->execute()) {
+            echo "Error reading students' e-mails!";
+            exit();
+        }
+
+        return $query->fetchAll();
+    }
+
+    private static function GetStudentEmail($firstName, $lastName, $class)
+    {
+        Helpers::CheckSession(true);
+        Main::CheckTeacher(true);
+
+        if (empty($firstName) || empty($lastName) || empty($class)) {
+            echo "First name, last name or class invalid!";
+            exit();
+        }
+
+        $query = Main::$pdo->prepare("SELECT email FROM accounts WHERE firstname = ? AND lastname = ? AND class = ? AND type = ? LIMIT 1");
+        $query->bindParam('1', $firstName);
+        $query->bindParam('2', $lastName);
+        $query->bindParam('3', $class);
+
+        $type = "student";
+        $query->bindParam('4', $type);
+
+        if (!$query->execute()) {
+            echo "Error resolving student e-mail!";
+            exit();
+        }
+
+        $row = $query->fetch();
+
+        if (!$row) {
+            echo "No student found that matches the given criteria!";
+            exit();
+        }
+
+        return $row[0];
+    }
+
+    private static function CheckTeacher($fatal)
+    {
+        if (Main::GetAccountType() != "teacher") {
+            if ($fatal)
+            {
+                echo "Only teachers can add new grades!";
+                exit();
+            }
+            return false;
+        }
+        return true;
+    }
+
     public static function PrintGrades($subject)
     {
         $gradeRows = Main::GetGrades($subject);
@@ -248,6 +332,19 @@ class Main
     public static function PrintAccountType()
     {
         echo Main::GetAccountType();
+    }
+
+    public static function PrintStudents()
+    {
+        $emails = Main::GetStudents();
+
+        foreach($emails as $row)
+            echo $row[0] . PHP_EOL;
+    }
+
+    public static function PrintStudentEmail($firstName, $lastName, $class)
+    {
+        print Main::GetStudentEmail($firstName, $lastName, $class);
     }
 }
 
@@ -347,12 +444,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     else if (isset($_POST['logout']))
         Main::Logout();
     else if (isset($_POST['newgrade']))
-        Main::NewGrade($_POST['subject'], $_POST['grade']);
+        Main::NewGrade($_POST['subject'], $_POST['grade'], $_POST['student'], $_POST['code']);
     else if (isset($_POST['getsubjects']))
         Main::PrintSubjects();
     else if (isset($_POST['getgrades']))
         Main::PrintGrades($_POST['subject']);
     else if (isset($_POST['getaccounttype']))
         Main::PrintAccountType();
+    else if (isset($_POST['getstudents']))
+        Main::PrintStudents();
+    else if (isset($_POST['getstudentemail']))
+        Main::PrintStudentEmail($firstname, $lastname, $class);
 } else echo "Hello!";
 ?>
