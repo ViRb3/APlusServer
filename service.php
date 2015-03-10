@@ -131,8 +131,17 @@ class Main
     {
         Helpers::CheckSession(true);
 
-        $user = $_SESSION['email'];
-        echo "Currently logged in as: $user" . '<br>';
+        $query = Main::$pdo->prepare("SELECT firstname, lastname, class FROM accounts WHERE email = ?");
+        $query->bindParam('1', $_SESSION['email']);
+        $query->execute();
+
+        $result = $query->fetch();
+        if (!$result) {
+            echo "Error loading account data!";
+            return;
+        }
+
+        echo "Currently logged in as: " . $result[0]. " " . $result[1]. " ". $result[2]. '<br>';
 
         $subjectRows = Main::GetSubjects();
 
