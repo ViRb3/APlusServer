@@ -9,9 +9,14 @@ class Main
      */
     public static $pdo = null;
 
-    private static $db_username = "microcas_apUser";
-    private static $db_password = "aplususer123";
-    private static $db_name = "microcas_aplus";
+    // BEGIN SETTINGS ------------------------------------------------------------------->
+    private static $db_username = "microcas_apUser"; // Database username
+    private static $db_password = "aplususer123"; // Database password
+    private static $db_name = "microcas_aplus"; // Database name
+    
+    public static $key = "v0,|m4Q/9K9mN'z*{RGL0@7eL2R8pHq4"; // Code decryption key
+    public static $startNumber = 18514; // Code decryption IV XOR randomizer
+    //<-----------------------------------------------------------------------END SETTINGS
 
     public static function Connect()
     {
@@ -29,10 +34,10 @@ class Main
     public static function Login($email, $password)
     {
         Helpers::CheckSession(false);
-
+        
         Functions::CheckEmail($email);
         Functions::CheckPassword($password, false);
-
+        
         $query = Main::$pdo->prepare("SELECT * FROM accounts WHERE email = ? LIMIT 1");
         $query->bindParam('1', $email);
 
@@ -165,13 +170,13 @@ class Main
             echo "-" . '<br>';
     }
 
-    public static function NewGrade($subject, $grade, $studentEmail, $code)
+    public static function NewGrade($subject, $grade, $code)
     {
         Helpers::CheckSession(true);
         Main::CheckTeacher(true);
 
-        if ($subject == null || $grade == null || $grade == null || $code == null) {
-            echo "Invalid subject, grade, student or code parameter!";
+        if ($subject == null || $grade == null || $code == null) {
+            echo "Invalid subject, grade or code parameter!";
             exit();
         }
 
@@ -179,6 +184,8 @@ class Main
             echo "Grade can only be a number between 2 and 6!";
             exit();
         }
+
+        $studentEmail = trim(Functions::Decrypt($code)); // user@email.com
 
         $query = Main::$pdo->prepare("SELECT email FROM accounts WHERE email = ?");
         $query->bindParam('1', $studentEmail);
@@ -217,11 +224,16 @@ class Main
         $result = $query->execute();
 
         if ($result)
-            echo "Grade saved!";
+        {
+            echo "Grade saved!" . PHP_EOL;
+            $student = Main::GetUserData($studentEmail);
+            echo "Graded student: $student";
+        }
         else
             echo "Error saving grade!";
     }
 
+    // BEGIN PRIVATE FUNCTIONS ------------------------------------------------------------->
     private static function GetSubjects()
     {
         Helpers::CheckSession(true);
@@ -309,6 +321,34 @@ class Main
         return $row[0];
     }
 
+    private static function GetUserData($email)
+    {
+        Helpers::CheckSession(true);
+        Main::CheckTeacher(true);
+
+        if (!isset($email) || empty($email)) {
+            echo "E-mail is invalid!";
+            exit();
+        }
+
+        $query = Main::$pdo->prepare("SELECT firstname, lastname, class FROM accounts WHERE email = ?");
+        $query->bindParam('1', $email);
+
+        if (!$query->execute()) {
+            echo "Error resolving user data!";
+            exit();
+        }
+
+        $row = $query->fetch();
+
+        if (!$row) {
+            echo "No user found with given E-mail!";
+            exit();
+        }
+
+        return $row[0] . " " . $row[1] . " " . $row[2];
+    }
+
     private static function CheckTeacher($fatal)
     {
         if (Main::GetAccountType() != "teacher") {
@@ -321,6 +361,7 @@ class Main
         }
         return true;
     }
+    //<--------------------------------------------------------------- END PRIVATE FUNCTIONS
 
     public static function PrintGrades($subject)
     {
@@ -353,7 +394,29 @@ class Main
 
     public static function PrintStudentEmail($firstName, $lastName, $class)
     {
-        print Main::GetStudentEmail($firstName, $lastName, $class);
+        echo Main::GetStudentEmail($firstName, $lastName, $class);
+    }
+
+    public static function PrintUnactivatedStudents()
+    {
+        $query = Main::$pdo->prepare("SELECT * FROM accounts WHERE activated = 0");
+        $result = $query->execute();
+        
+        if (!$result)
+        {
+            echo "Error retrieving unactivated students!";
+            exit();
+        }
+        else if ($query->rowCount() == 0)
+        {
+            echo "No unactivated students!";
+            exit();
+        }
+        else
+        {
+            foreach($query->fetchAll() as $row)
+                echo $row['firstname'] . " " . $row['lastname'] . " " . $row['class'];
+        }
     }
 }
 
@@ -429,6 +492,29 @@ class Functions
             echo "Password must be at least 6 characters long!";
             exit();
         }
+        else if(!Functions::IsPasswordValid($password)) {
+            echo "Invalid characters found in password!";
+            exit();
+        }
+    }
+    
+    public static function IsPasswordValid($password)
+    {
+        return !preg_match('[^A-Za-zА-Яа-я0-9!-+]', $password);
+    }
+    
+    public static function Decrypt($data)
+    {
+        $data = base64_decode($data);   
+        $IVLength = 32;
+        
+        $IV = substr($data, strlen($data) - $IVLength);
+        $data = substr($data, 0, strlen($data) - $IVLength);
+
+        $key = Main::$key;
+        
+        $decrypted = mcrypt_decrypt(MCRYPT_RIJNDAEL_256, $key, $data, MCRYPT_MODE_CBC, $IV);
+        return $decrypted;
     }
 }
 
@@ -453,7 +539,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     else if (isset($_POST['logout']))
         Main::Logout();
     else if (isset($_POST['newgrade']))
-        Main::NewGrade($_POST['subject'], $_POST['grade'], $_POST['student'], $_POST['code']);
+        Main::NewGrade($_POST['subject'], $_POST['grade'], $_POST['code']);
     else if (isset($_POST['getsubjects']))
         Main::PrintSubjects();
     else if (isset($_POST['getgrades']))
@@ -464,5 +550,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         Main::PrintStudents();
     else if (isset($_POST['getstudentemail']))
         Main::PrintStudentEmail($firstname, $lastname, $class);
+
 } else echo "Hello!";
 ?>
