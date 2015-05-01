@@ -276,9 +276,12 @@ class Main
     private static function GetStudents()
     {
         Helpers::CheckSession(true);
-        Main::CheckTeacher(true);
+        Main::CheckAdmin(true);
 
-        $query = Main::$pdo->prepare("SELECT email FROM accounts");
+        $query = Main::$pdo->prepare("SELECT email, firstname, lastname, class FROM accounts WHERE type = ?");
+
+        $type = "student";
+        $query->bindParam('1', $type);
 
         if (!$query->execute()) {
             echo "Error reading students' e-mails!";
@@ -354,7 +357,20 @@ class Main
         if (Main::GetAccountType() != "teacher") {
             if ($fatal)
             {
-                echo "Only teachers can add new grades!";
+                echo "Only teachers can use this function!";
+                exit();
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private static function CheckAdmin($fatal)
+    {
+        if (Main::GetAccountType() != "admin") {
+            if ($fatal)
+            {
+                echo "Only administrators can use this function!";
                 exit();
             }
             return false;
@@ -386,10 +402,10 @@ class Main
 
     public static function PrintStudents()
     {
-        $emails = Main::GetStudents();
+        $students = Main::GetStudents();
 
-        foreach($emails as $row)
-            echo $row[0] . PHP_EOL;
+        foreach($students as $row)
+            echo $row[0] . " " . $row[1] . " " . $row[2] . " " . $row[3] . PHP_EOL;
     }
 
     public static function PrintStudentEmail($firstName, $lastName, $class)
