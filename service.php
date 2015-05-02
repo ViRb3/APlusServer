@@ -18,6 +18,8 @@ class Main
     public static $startNumber = 18514; // Code decryption IV XOR randomizer
     //<-----------------------------------------------------------------------END SETTINGS
 
+    private static $classRegex = "/[0-9]{1,2}[A-Z]|[0-9]{1,2}[А-Я]/u";
+
     public static function Connect()
     {
         try {
@@ -38,7 +40,7 @@ class Main
         Functions::CheckEmail($email);
         Functions::CheckPassword($password, false);
         
-        $query = Main::$pdo->prepare("SELECT * FROM accounts WHERE email = ? LIMIT 1");
+        $query = Main::$pdo->prepare("SELECT * FROM `accounts` WHERE `email` = ? LIMIT 1");
         $query->bindParam('1', $email);
 
         $result = $query->execute();
@@ -49,9 +51,20 @@ class Main
             if ($num_rows == 1) {
                 $passwordHash = $query->fetch(PDO::FETCH_ASSOC);
                 if (password_verify($password, $passwordHash['password'])) {
+
+                	$query = Main::$pdo->prepare("SELECT `activated` FROM `accounts` WHERE `email` = ? LIMIT 1");
+					$query->bindParam('1', $email);
+
+					$result = $query->execute();
+					if (!$result || $query->fetch()[0] != 1)
+					{
+						echo "Account not activated!";
+						exit();
+					}
+
                     $_SESSION['email'] = $email;
 
-                    $query = Main::$pdo->prepare("SELECT `key` FROM cookies WHERE email = ? LIMIT 1");
+                    $query = Main::$pdo->prepare("SELECT `key` FROM `cookies` WHERE `email` = ? LIMIT 1");
                     $query->bindParam('1', $email);
 
                     if (!$query->execute())
@@ -65,7 +78,7 @@ class Main
 
                     if (!$row)
                     {
-                        $query = Main::$pdo->prepare("INSERT INTO cookies (email, `key`) VALUES (?, ?)");
+                        $query = Main::$pdo->prepare("INSERT INTO `cookies` (`email`, `key`) VALUES (?, ?)");
                         $query->bindParam('1', $email);
                         $query->bindParam('2', $key);
 
@@ -102,7 +115,7 @@ class Main
         }
     }
 
-    public static function Create($email, $password, $firstname, $lastname, $class)
+    public static function Register($email, $password, $firstname, $lastname, $class)
     {
         Helpers::CheckSession(false);
 
@@ -111,7 +124,13 @@ class Main
 
         Helpers::CheckExists($email);
 
-        $query = Main::$pdo->prepare("INSERT INTO accounts (firstname, lastname, email, password, type, class, activated) VALUES (?, ?, ?, ?, ?, ?, 0)");
+        if (!preg_match(Main::$classRegex, $class, $matches) || $matches[0] != $class)
+        {
+            echo "Invalid class specified!";
+            return;
+        }
+
+        $query = Main::$pdo->prepare("INSERT INTO `accounts` (`firstname`, `lastname`, `email`, `password`, `type`, `class`, `activated`) VALUES (?, ?, ?, ?, ?, ?, 0)");
         $query->bindParam('1', $firstname);
         $query->bindParam('2', $lastname);
         $query->bindParam('3', $email);
@@ -136,7 +155,7 @@ class Main
     {
         Helpers::CheckSession(true);
 
-        $query = Main::$pdo->prepare("SELECT firstname, lastname, class FROM accounts WHERE email = ?");
+        $query = Main::$pdo->prepare("SELECT `firstname`, `lastname`, `class` FROM `accounts` WHERE `email` = ?");
         $query->bindParam('1', $_SESSION['email']);
         $query->execute();
 
@@ -187,7 +206,7 @@ class Main
 
         $studentEmail = trim(Functions::Decrypt($code)); // user@email.com
 
-        $query = Main::$pdo->prepare("SELECT email FROM accounts WHERE email = ?");
+        $query = Main::$pdo->prepare("SELECT `email` FROM `accounts` WHERE `email` = ?");
         $query->bindParam('1', $studentEmail);
 
         $result = $query->execute();
@@ -202,7 +221,7 @@ class Main
             return;
         }
 
-        $query = Main::$pdo->prepare("SELECT code FROM grades WHERE code = ?");
+        $query = Main::$pdo->prepare("SELECT `code` FROM `grades` WHERE `code` = ?");
         $query->bindParam('1', $code);
         $query->execute();
 
@@ -211,7 +230,7 @@ class Main
             exit();
         }
 
-        $query = Main::$pdo->prepare("INSERT INTO grades (email, subject, grade, timestamp, code) VALUES (?, ?, ?, ?, ?)");
+        $query = Main::$pdo->prepare("INSERT INTO `grades` (email, `subject`, `grade`, `timestamp`, `code`) VALUES (?, ?, ?, ?, ?)");
         $query->bindParam('1', $studentEmail);
         $query->bindParam('2', $subject);
         $query->bindParam('3', $grade);
@@ -238,7 +257,7 @@ class Main
     {
         Helpers::CheckSession(true);
 
-        $query = Main::$pdo->prepare("SELECT DISTINCT subject FROM grades WHERE email = ?");
+        $query = Main::$pdo->prepare("SELECT DISTINCT `subject` FROM `grades` WHERE `email` = ?");
         $query->bindParam('1', $_SESSION['email']);
 
         $query->execute();
@@ -254,7 +273,7 @@ class Main
             exit();
         }
 
-        $query = Main::$pdo->prepare("SELECT grade FROM grades WHERE email = ? AND subject = ?");
+        $query = Main::$pdo->prepare("SELECT `grade` FROM `grades` WHERE `email` = ? AND `subject` = ?");
         $query->bindParam('1', $_SESSION['email']);
         $query->bindParam('2', $subject);
 
@@ -266,7 +285,7 @@ class Main
     {
         Helpers::CheckSession(true);
 
-        $query = Main::$pdo->prepare("SELECT type FROM accounts WHERE email = ?");
+        $query = Main::$pdo->prepare("SELECT `type` FROM `accounts` WHERE `email` = ?");
         $query->bindParam('1', $_SESSION['email']);
 
         $query->execute();
@@ -278,7 +297,7 @@ class Main
         Helpers::CheckSession(true);
         Main::CheckAdmin(true);
 
-        $query = Main::$pdo->prepare("SELECT email, firstname, lastname, class FROM accounts WHERE type = ?");
+        $query = Main::$pdo->prepare("SELECT `email`, `firstname`, `lastname`, `class` FROM `accounts` WHERE `type` = ?");
 
         $type = "student";
         $query->bindParam('1', $type);
@@ -301,7 +320,7 @@ class Main
             exit();
         }
 
-        $query = Main::$pdo->prepare("SELECT email FROM accounts WHERE firstname = ? AND lastname = ? AND class = ? AND type = ? LIMIT 1");
+        $query = Main::$pdo->prepare("SELECT `email` FROM `accounts` WHERE `firstname` = ? AND `lastname` = ? AND `class` = ? AND `type` = ? LIMIT 1");
         $query->bindParam('1', $firstName);
         $query->bindParam('2', $lastName);
         $query->bindParam('3', $class);
@@ -334,7 +353,7 @@ class Main
             exit();
         }
 
-        $query = Main::$pdo->prepare("SELECT firstname, lastname, class FROM accounts WHERE email = ?");
+        $query = Main::$pdo->prepare("SELECT `firstname`, `lastname`, `class` FROM `accounts` WHERE `email` = ?");
         $query->bindParam('1', $email);
 
         if (!$query->execute()) {
@@ -415,7 +434,7 @@ class Main
 
     public static function PrintUnactivatedStudents()
     {
-        $query = Main::$pdo->prepare("SELECT * FROM accounts WHERE activated = 0");
+        $query = Main::$pdo->prepare("SELECT * FROM `accounts` WHERE `activated` = 0");
         $result = $query->execute();
         
         if (!$result)
@@ -440,7 +459,7 @@ class Helpers
 {
     public static function CheckExists($email, $fatal = true)
     {
-        $query = Main::$pdo->prepare("SELECT * FROM accounts WHERE email = ? LIMIT 1");
+        $query = Main::$pdo->prepare("SELECT * FROM `accounts` WHERE `email` = ? LIMIT 1");
         $query->bindParam('1', $email);
 
         $result = $query->execute();
@@ -465,7 +484,7 @@ class Helpers
             $cookie = unserialize($_COOKIE['signedUser']);
             if (Helpers::CheckExists($cookie['email'], false) && $_SERVER['REMOTE_ADDR'] == $cookie['ip'])
             {
-                $query = Main::$pdo->prepare("SELECT `key` FROM cookies WHERE email = ? LIMIT 1");
+                $query = Main::$pdo->prepare("SELECT `key` FROM `cookies` WHERE `email` = ? LIMIT 1");
                 $query->bindParam('1', $cookie['email']);
 
                 $result = $query->execute();
@@ -516,7 +535,7 @@ class Functions
     
     public static function IsPasswordValid($password)
     {
-        return !preg_match('[^A-Za-zА-Яа-я0-9!-+]', $password);
+        return !preg_match('/[^A-Za-zА-Яа-я0-9!-+]/u', $password);
     }
     
     public static function Decrypt($data)
@@ -547,7 +566,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     Main::Connect();
 
     if (isset($_POST['register']))
-        Main::Create($email, $password, $firstname, $lastname, $class);
+        Main::Register($email, $password, $firstname, $lastname, $class);
     else if (isset($_POST['login']))
         Main::Login($email, $password);
     else if (isset($_POST['checkuser']))
