@@ -303,7 +303,54 @@ class Main
         $query->bindParam('1', $type);
 
         if (!$query->execute()) {
-            echo "Error reading students' e-mails!";
+            echo "Error reading student data!";
+            exit();
+        }
+
+        return $query->fetchAll();
+    }
+
+    private static function GetAccounts($class = null, $type = null, $unactivatedOnly = null)
+    {
+        Helpers::CheckSession(true);
+        Main::CheckAdmin(true);
+
+        $query = null;
+        $queryBuilder = "SELECT `email`, `firstname`, `lastname`, `class`, `type`, `activated` FROM `accounts` WHERE `type` != ?";
+
+        if (isset($class) && !empty(trim($class)))
+        {
+            $queryBuilder .= " AND `class` = ?";
+        }
+
+        if (isset($type) && !empty(trim($type)))
+        {
+            $queryBuilder .= " AND `type` = ?";
+        }
+
+        if (isset($unactivatedOnly))
+        {
+            $queryBuilder .= " AND `activated` = 0";
+        }
+
+        $query = Main::$pdo->prepare($queryBuilder);
+
+        $parameterCounter = 2;
+        $admin = "admin";
+        $query->bindParam('1', $admin);
+
+        if (isset($class) && !empty(trim($class)))
+        {
+            $query->bindParam($parameterCounter++, $class);
+        }
+
+        if (isset($type) && !empty(trim($type)))
+        {
+            $query->bindParam($parameterCounter, $type);
+        }
+
+        if (!$query->execute()) {
+            echo "Error reading account data!";
             exit();
         }
 
@@ -425,6 +472,14 @@ class Main
 
         foreach($students as $row)
             echo $row[0] . " " . $row[1] . " " . $row[2] . " " . $row[3] . PHP_EOL;
+    }
+
+    public static function PrintAccounts($class, $type, $unactivatedOnly)
+    {
+        $accounts = Main::GetAccounts($class, $type, $unactivatedOnly);
+
+        foreach($accounts as $row)
+            echo $row[0] . " " . $row[1] . " " . $row[2] . " " . $row[3] . " " . $row[4] . " " . $row[5] . PHP_EOL;
     }
 
     public static function PrintStudentEmail($firstName, $lastName, $class)
@@ -554,21 +609,15 @@ class Functions
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $email = htmlspecialchars($_POST['email']);
-    $password = htmlspecialchars($_POST['password']);
-    $firstname = htmlspecialchars($_POST['firstname']);
-    $lastname = htmlspecialchars($_POST['lastname']);
-    $class = htmlspecialchars($_POST['class']);
-
     if (session_status() != PHP_SESSION_ACTIVE)
         session_start();
 
     Main::Connect();
 
     if (isset($_POST['register']))
-        Main::Register($email, $password, $firstname, $lastname, $class);
+        Main::Register($_POST['email'], $_POST['password'], $_POST['firstname'], $_POST['lastname'], $_POST['class']);
     else if (isset($_POST['login']))
-        Main::Login($email, $password);
+        Main::Login($_POST['email'], $_POST['password']);
     else if (isset($_POST['checkuser']))
         Main::CheckUser();
     else if (isset($_POST['logout']))
@@ -583,8 +632,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         Main::PrintAccountType();
     else if (isset($_POST['getstudents']))
         Main::PrintStudents();
+    else if (isset($_POST['getaccounts'])) // optional arguments
+    	Main::PrintAccounts($_POST['class'], $_POST['type'], $_POST['unactivatedonly']);
     else if (isset($_POST['getstudentemail']))
-        Main::PrintStudentEmail($firstname, $lastname, $class);
+        Main::PrintStudentEmail($_POST['firstname'], $_POST['lastname'], $_POST['class']);
 
 } else echo "Hello!";
 ?>
