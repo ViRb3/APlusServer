@@ -1,4 +1,6 @@
 <?PHP
+include_once 'Functions.php';
+include_once 'Main.php';
 
 date_default_timezone_set('Europe/Sofia');
 
@@ -31,4 +33,4 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     else if (isset($_POST['getstudentemail']))
         Main::PrintStudentEmail($_POST['firstname'], $_POST['lastname'], $_POST['class']);
 
-} else echo "Hello!";
+} else echo 'Hello!';
