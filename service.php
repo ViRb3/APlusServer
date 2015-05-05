@@ -4,9 +4,17 @@ include_once 'Main.php';
 
 date_default_timezone_set('Europe/Sofia');
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+if ($_SERVER['REQUEST_METHOD'] == 'POST')
+{
     if (session_status() != PHP_SESSION_ACTIVE)
         session_start();
+
+    SecurePost('subject');
+    SecurePost('grade');
+    SecurePost('class');
+    SecurePost('type');
+    SecurePost('firstname');
+    SecurePost('lastname');
 
     Main::Connect();
 
@@ -27,10 +35,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     else if (isset($_POST['getaccounttype']))
         Main::PrintAccountType();
     else if (isset($_POST['getstudents']))
-        Main::PrintStudents();
-    else if (isset($_POST['getaccounts'])) // optional arguments
-    	Main::PrintAccounts($_POST['class'], $_POST['type'], $_POST['unactivatedonly']);
+        Main::PrintStudents($_POST['class']); // optional parameters
+    else if (isset($_POST['getaccounts']))
+    	Main::PrintAccounts($_POST['class'], $_POST['type'], $_POST['unactivatedonly']); // optional parameters
     else if (isset($_POST['getstudentemail']))
         Main::PrintStudentEmail($_POST['firstname'], $_POST['lastname'], $_POST['class']);
+    else
+        echo 'Nothing to do!';
 
 } else echo 'Hello!';
+
+function SecurePost($postName)
+{
+    if (isset($_POST[$postName]))
+        $_POST[$postName] = htmlspecialchars($_POST[$postName]);
+}

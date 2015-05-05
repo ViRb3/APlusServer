@@ -17,8 +17,6 @@ class Main
     public static $startNumber = 18514; // Code decryption IV XOR randomizer
     //<-----------------------------------------------------------------------END SETTINGS
 
-    private static $classRegex = '/[0-9]{1,2}[A-Z]|[0-9]{1,2}[А-Я]/u';
-
     public static function Connect()
     {
         try {
@@ -37,7 +35,7 @@ class Main
         Functions::CheckSession(false);
 
         Functions::CheckEmail($email);
-        Functions::CheckPassword($password, false);
+        Functions::CheckPassword($password);
 
         $query = Main::$pdo->prepare('SELECT * FROM `accounts` WHERE `email` = ? LIMIT 1');
         $query->bindParam('1', $email);
@@ -119,15 +117,11 @@ class Main
         Functions::CheckSession(false);
 
         Functions::CheckEmail($email);
-        Functions::CheckPassword($password, true);
+        Functions::CheckPassword($password);
 
         Functions::CheckExists($email);
 
-        if (!preg_match(Main::$classRegex, $class, $matches) || $matches[0] != $class)
-        {
-            echo 'Invalid class specified!';
-            return;
-        }
+        Functions::CheckClass($class);
 
         $query = Main::$pdo->prepare('INSERT INTO `accounts` (`firstname`, `lastname`, `email`, `password`, `type`, `class`, `activated`) VALUES (?, ?, ?, ?, ?, ?, 0)');
         $query->bindParam('1', $firstname);
@@ -245,7 +239,7 @@ class Main
         {
             echo 'Grade saved!' . PHP_EOL;
             $student = Main::GetUserData($studentEmail);
-            echo 'Graded student: $student';
+            echo "Graded student: $student";
         }
         else
             echo 'Error saving grade!';
@@ -291,15 +285,28 @@ class Main
         return $query->fetch()[0];
     }
 
-    private static function GetStudents()
+    private static function GetStudents($class = null)
     {
         Functions::CheckSession(true);
         Main::CheckAdmin(true);
 
-        $query = Main::$pdo->prepare('SELECT `email`, `firstname`, `lastname`, `class` FROM `accounts` WHERE `type` = ?');
+        $queryBuilder = 'SELECT `email`, `firstname`, `lastname`, `class` FROM `accounts` WHERE `type` = ?';
+
+        if (isset($class) && !empty(trim($class)))
+        {
+            Functions::CheckClass($class);
+            $queryBuilder .= ' AND `class` = ?';
+        }
+
+        $query = Main::$pdo->prepare($queryBuilder);
 
         $type = 'student';
         $query->bindParam('1', $type);
+
+        if (isset($class) && !empty(trim($class)))
+        {
+            $query->bindParam('2', $class);
+        }
 
         if (!$query->execute()) {
             echo 'Error reading student data!';
@@ -319,6 +326,7 @@ class Main
 
         if (isset($class) && !empty(trim($class)))
         {
+            Functions::CheckClass($class);
             $queryBuilder .= ' AND `class` = ?';
         }
 
@@ -361,10 +369,7 @@ class Main
         Functions::CheckSession(true);
         Main::CheckTeacher(true);
 
-        if (empty($firstName) || empty($lastName) || empty($class)) {
-            echo 'First name, last name or class invalid!';
-            exit();
-        }
+        Functions::CheckClass($class);
 
         $query = Main::$pdo->prepare('SELECT `email` FROM `accounts` WHERE `firstname` = ? AND `lastname` = ? AND `class` = ? AND `type` = ? LIMIT 1');
         $query->bindParam('1', $firstName);
@@ -465,9 +470,9 @@ class Main
         echo Main::GetAccountType();
     }
 
-    public static function PrintStudents()
+    public static function PrintStudents($class)
     {
-        $students = Main::GetStudents();
+        $students = Main::GetStudents($class);
 
         foreach($students as $row)
             echo $row[0] . ' ' . $row[1] . ' ' . $row[2] . ' ' . $row[3] . PHP_EOL;

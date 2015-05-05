@@ -11,24 +11,42 @@ class Functions
         }
     }
 
-    public static function CheckPassword($password, $checkLength)
+    public static function CheckPassword($password)
     {
-        if ($password == null) {
-            echo 'Invalid password!';
-            exit();
-        } else if ($checkLength && strlen($password) < 6) {
-            echo 'Password must be at least 6 characters long!';
-            exit();
-        }
-        else if(!Functions::IsPasswordValid($password)) {
-            echo 'Invalid characters found in password!';
+        if (!Functions::IsSHA256($password))
+        {
+            echo 'Password is not a valid SHA-256 hash!';
             exit();
         }
     }
 
-    public static function IsPasswordValid($password)
+    public static function CheckClass($class)
     {
-        return !preg_match('/[^A-Za-zА-Яа-я0-9!-+]/u', $password);
+        if (!Functions::IsValidClass($class))
+        {
+            echo 'Invalid class specified!';
+            exit();
+        }
+    }
+
+    public static function IsSHA256($input)
+    {
+        return preg_match('/^[A-Fa-f0-9]{64}$/i', $input);
+    }
+
+    public static function IsValidSpecial($password)
+    {
+        return preg_match('/[A-Za-zА-Яа-я0-9!-+]/u', $password);
+    }
+
+    public static function IsValidName($name)
+    {
+        return preg_match('/[A-Za-zА-Яа-я-]/u', $name);
+    }
+
+    public static function IsValidClass($class)
+    {
+        return (preg_match('/[0-9]{1,2}[A-Z]|[0-9]{1,2}[А-Я]/u', $class, $matches) && $matches[0] == $class);
     }
 
     public static function Decrypt($data)
