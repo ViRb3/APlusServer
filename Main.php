@@ -201,7 +201,7 @@ class Main
         }
 
         if (!$query->fetch()) {
-            echo 'Given e-mail is not registered!';
+            echo "Given e-mail: '$studentEmail' is not registered!";
             exit();
         }
 

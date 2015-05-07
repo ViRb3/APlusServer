@@ -60,7 +60,39 @@ class Functions
         $key = Main::$key;
 
         $decrypted = mcrypt_decrypt(MCRYPT_RIJNDAEL_256, $key, $data, MCRYPT_MODE_CBC, $IV);
+        $decrypted = Functions::Unpad($decrypted, mcrypt_get_block_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_CBC));
+
         return $decrypted;
+    }
+
+    private static function Unpad($data, $blockSize)
+    {
+        $dataLength = strlen($data);
+
+        if ($dataLength % $blockSize != 0)
+        {
+            throw new Exception("Padded plaintext cannot be divided by the block size!");
+        }
+
+        $padSize = ord($data[$dataLength - 1]);
+
+        if ($padSize === 0)
+        {
+            throw new Exception("Zero padding found instead of PKCS#7 padding!");
+        }
+
+        if ($padSize > $blockSize)
+        {
+            throw new Exception("Incorrect amount of PKCS#7 padding for blocksize!");
+        }
+
+        $padding = substr($data, -1 * $padSize);
+        if (substr_count($padding, chr($padSize)) != $padSize)
+        {
+            throw new Exception("Invalid PKCS#7 padding encountered!");
+        }
+
+        return substr($data, 0, $dataLength - $padSize);
     }
 
     public static function CheckExists($email, $fatal = true)
