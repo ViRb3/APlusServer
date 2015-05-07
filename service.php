@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST')
     SecurePost('type');
     SecurePost('firstname');
     SecurePost('lastname');
+    SecurePost('data');
 
     Main::Connect();
 
@@ -28,6 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST')
         Main::Logout();
     else if (isset($_POST['newgrade']))
         Main::NewGrade($_POST['subject'], $_POST['grade'], $_POST['code']);
+    else if (isset($_POST['newgrades']))
+        Main::NewGrades($_POST['data']);
     else if (isset($_POST['getsubjects']))
         Main::PrintSubjects();
     else if (isset($_POST['getgrades']))
@@ -40,6 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST')
     	Main::PrintAccounts($_POST['class'], $_POST['type'], $_POST['unactivatedonly']); // optional parameters
     else if (isset($_POST['getstudentemail']))
         Main::PrintStudentEmail($_POST['firstname'], $_POST['lastname'], $_POST['class']);
+    else if (isset($_POST['updateaccounts']))
+        Main::UpdateAccounts($_POST['data']);
     else
         echo 'Nothing to do!';
 

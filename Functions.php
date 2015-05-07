@@ -46,7 +46,7 @@ class Functions
 
     public static function IsValidClass($class)
     {
-        return (preg_match('/[0-9]{1,2}[A-Z]|[0-9]{1,2}[А-Я]/u', $class, $matches) && $matches[0] == $class);
+        return (preg_match('/[0-9]{1,2}[A-Z]/', $class, $matches) && $matches[0] == $class);
     }
 
     public static function Decrypt($data)
@@ -73,7 +73,7 @@ class Functions
         if ($fatal)
         {
             if (!$result)
-                echo 'Error creating account! Error code: 1';
+                echo 'Error code: 1';
             else if ($query->rowCount() > 0) {
                 echo 'E-mail already registered!';
                 exit();
@@ -83,8 +83,11 @@ class Functions
         return $result;
     }
 
-    public static function CheckSession($loggedIn)
+    public static function CheckSession($mustLoggedIn)
     {
+        if (isset($_SESSION['email']) && !Functions::IsActivated($_SESSION['email']))
+            Functions::DestroySession();
+
         if (isset($_COOKIE['signedUser']) && !isset($_SESSION['email']))
         {
             $cookie = unserialize($_COOKIE['signedUser']);
@@ -104,12 +107,46 @@ class Functions
                 }
             }
         }
-        if (isset($_SESSION['email']) && !$loggedIn) {
+
+        if (isset($_SESSION['email']) && !$mustLoggedIn) {
             echo 'Already logged in!';
             exit();
-        } else if ($loggedIn && !isset($_SESSION['email'])) {
+        } else if ($mustLoggedIn && !isset($_SESSION['email'])) {
             echo 'Not logged in!';
             exit();
+        }
+    }
+
+    public static function CheckActivated($email)
+    {
+        if (!Functions::IsActivated($email))
+        {
+            echo 'Account not activated!';
+            exit();
+        }
+    }
+
+    public static function IsActivated($email)
+    {
+        $query = Main::$pdo->prepare('SELECT `activated` FROM `accounts` WHERE `email` = ? LIMIT 1');
+        $query->bindParam('1', $email);
+
+        $result = $query->execute();
+        if (!$result || $query->fetch()[0] != 1)
+            return false;
+
+        return true;
+    }
+
+    public static function DestroySession()
+    {
+        unset($_COOKIE['signedUser']);
+        setcookie('signedUser', '', time() - 3600);
+
+        if (session_status() == PHP_SESSION_ACTIVE)
+        {
+            session_unset();
+            session_destroy();
         }
     }
 }

@@ -49,15 +49,7 @@ class Main
                 $passwordHash = $query->fetch(PDO::FETCH_ASSOC);
                 if (password_verify($password, $passwordHash['password'])) {
 
-                    $query = Main::$pdo->prepare('SELECT `activated` FROM `accounts` WHERE `email` = ? LIMIT 1');
-                    $query->bindParam('1', $email);
-
-                    $result = $query->execute();
-                    if (!$result || $query->fetch()[0] != 1)
-                    {
-                        echo 'Account not activated!';
-                        exit();
-                    }
+                    Functions::CheckActivated($email);
 
                     $_SESSION['email'] = $email;
 
@@ -104,8 +96,7 @@ class Main
     public static function Logout()
     {
         if (isset($_SESSION['email'])) {
-            session_destroy();
-            setcookie('signedUser', '', time() - 3600);
+            Functions::DestroySession();
             echo 'Logged out successfully';
         } else {
             echo 'Not logged in!';
@@ -206,12 +197,12 @@ class Main
 
         if (!$result) {
             echo 'Error reading e-mail!';
-            return;
+            exit();
         }
 
         if (!$query->fetch()) {
             echo 'Given e-mail is not registered!';
-            return;
+            exit();
         }
 
         $query = Main::$pdo->prepare('SELECT `code` FROM `grades` WHERE `code` = ?');
@@ -219,8 +210,8 @@ class Main
         $query->execute();
 
         if ($query->fetch()) {
-            echo 'Code already used!';
-            exit();
+            echo 'Code already used!' . PHP_EOL;
+            return;
         }
 
         $query = Main::$pdo->prepare('INSERT INTO `grades` (email, `subject`, `grade`, `timestamp`, `code`) VALUES (?, ?, ?, ?, ?)');
@@ -239,10 +230,99 @@ class Main
         {
             echo 'Grade saved!' . PHP_EOL;
             $student = Main::GetUserData($studentEmail);
-            echo "Graded student: $student";
+            echo "Graded student: $student in $subject with $grade" . PHP_EOL;
         }
         else
             echo 'Error saving grade!';
+    }
+
+    public static function NewGrades($data)
+    {
+        $pieceSeparator = '-||-';
+        $dataSeparator = '-|-';
+
+        $updatePieces = explode($pieceSeparator, $data);
+
+        foreach($updatePieces as $piece)
+        {
+            if (empty(trim($piece)))
+                continue;
+
+            $pieceData = explode($dataSeparator, $piece);
+            if (count($pieceData) != 3) // SUBJECT, GRADE, CODE
+            {
+                echo "Data: '$piece' is not in a correct format!";
+                return;
+            }
+
+            Main::NewGrade($pieceData[0], $pieceData[1], $pieceData[2]);
+        }
+    }
+
+    public static function UpdateAccounts($data)
+    {
+        $pieceSeparator = '-||-';
+        $dataSeparator = '-|-';
+
+        $updatePieces = explode($pieceSeparator, $data);
+
+        foreach($updatePieces as $piece)
+        {
+            if (empty(trim($piece)))
+                continue;
+
+            $pieceData = explode($dataSeparator, $piece);
+            if (count($pieceData) != 3) // EMAIL, COLUMN, DATA
+            {
+                echo "Data: '$piece' is not in a correct format!";
+                return;
+            }
+
+            Functions::CheckEmail($pieceData[0]);
+            $column = null;
+
+            switch($pieceData[1])
+            {
+                case 0:
+                    $column = 'email';
+                    break;
+                case 1:
+                    $column = 'firstname';
+                    break;
+                case 2:
+                    $column = 'lastname';
+                    break;
+                case 3:
+                    $column = 'class';
+                    break;
+                case 4:
+                    $column = 'type';
+                    break;
+                case 5:
+                    $column = 'activated';
+                    break;
+            }
+
+            if ($column == null)
+            {
+                echo 'Invalid column index given!';
+                return;
+            }
+
+            $query = Main::$pdo->prepare("UPDATE `accounts` SET `$column` = ? WHERE `email` = ? LIMIT 1");
+            $query->bindParam('1', $pieceData[2]);
+            $query->bindParam('2', $pieceData[0]);
+
+            $result = $query->execute();
+
+            if (!$result)
+            {
+                echo 'Error updating record!';
+                return;
+            }
+        }
+
+        echo 'Records updated!';
     }
 
     // BEGIN PRIVATE FUNCTIONS ------------------------------------------------------------->
@@ -290,7 +370,7 @@ class Main
         Functions::CheckSession(true);
         Main::CheckAdmin(true);
 
-        $queryBuilder = 'SELECT `email`, `firstname`, `lastname`, `class` FROM `accounts` WHERE `type` = ?';
+        $queryBuilder = 'SELECT `email`, `firstname`, `lastname`, `class` FROM `accounts` WHERE `type` = ? AND `activated` = 1';
 
         if (isset($class) && !empty(trim($class)))
         {
