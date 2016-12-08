@@ -144,7 +144,8 @@ class Main
         $query->execute();
 
         $result = $query->fetch();
-        if (!$result) {
+        if (!$result)
+        {
             echo 'Error loading account data!';
             return;
         }
@@ -209,7 +210,8 @@ class Main
         $query->bindParam('1', $code);
         $query->execute();
 
-        if ($query->fetch()) {
+        if ($query->fetch()) // if code is found in database
+        {
             echo 'Code already used!' . PHP_EOL;
             return;
         }
@@ -309,9 +311,10 @@ class Main
                 return;
             }
 
-            $query = Main::$pdo->prepare("UPDATE `accounts` SET `$column` = ? WHERE `email` = ? LIMIT 1");
-            $query->bindParam('1', $pieceData[2]);
-            $query->bindParam('2', $pieceData[0]);
+            $query = Main::$pdo->prepare("UPDATE `accounts` SET ? = ? WHERE `email` = ? LIMIT 1");
+            $query->bindParam('1', $column);
+            $query->bindParam('2', $pieceData[2]);
+            $query->bindParam('3', $pieceData[0]);
 
             $result = $query->execute();
 
@@ -325,6 +328,40 @@ class Main
         echo 'Records updated!';
     }
 
+    public static function Activate($email)
+    {
+        Main::CheckAdmin(true);
+
+        $query = Main::$pdo->prepare('SELECT 1 FROM `accounts` WHERE `email` = ?');
+        $query->bindParam('1', $email);
+
+        $result = $query->execute();
+
+        if (!$result)
+        {
+            echo 'Error checking e-mail!';
+            exit();
+        }
+
+        if (!$query->fetch()) {
+            echo 'Invalid e-mail' . PHP_EOL;
+            return;
+        }
+
+        $query = Main::$pdo->prepare('UPDATE accounts SET activated = 1 WHERE email = ?');
+        $query->bindParam('1', $code);
+
+        $result = $query->execute();
+
+        if (!$result)
+        {
+            echo 'Error activating account!';
+            exit();
+        }
+
+        echo 'Account activated!';
+    }
+
     // BEGIN PRIVATE FUNCTIONS ------------------------------------------------------------->
     private static function GetSubjects()
     {
@@ -333,7 +370,14 @@ class Main
         $query = Main::$pdo->prepare('SELECT DISTINCT `subject` FROM `grades` WHERE `email` = ?');
         $query->bindParam('1', $_SESSION['email']);
 
-        $query->execute();
+        $result = $query->execute();
+
+        if (!$result)
+        {
+            echo 'Error getting account subjects!';
+            exit();
+        }
+
         return $query->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -350,7 +394,14 @@ class Main
         $query->bindParam('1', $_SESSION['email']);
         $query->bindParam('2', $subject);
 
-        $query->execute();
+        $result = $query->execute();
+
+        if (!$result)
+        {
+            echo 'Error getting account grades!';
+            exit();
+        }
+
         return $query->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -361,7 +412,14 @@ class Main
         $query = Main::$pdo->prepare('SELECT `type` FROM `accounts` WHERE `email` = ?');
         $query->bindParam('1', $_SESSION['email']);
 
-        $query->execute();
+        $result = $query->execute();
+
+        if (!$result)
+        {
+            echo 'Error getting account type!';
+            exit();
+        }
+
         return $query->fetch()[0];
     }
 

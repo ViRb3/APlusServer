@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST')
     SecurePost('firstname');
     SecurePost('lastname');
     SecurePost('data');
+    SecurePost('email');
 
     Main::Connect();
 
@@ -45,6 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST')
         Main::PrintStudentEmail($_POST['firstname'], $_POST['lastname'], $_POST['class']);
     else if (isset($_POST['updateaccounts']))
         Main::UpdateAccounts($_POST['data']);
+    else if (isset($_POST['activateaccount']))
+        Main::Activate($_POST['email']);
     else
         echo 'Nothing to do!';
 
